@@ -59,3 +59,5 @@ def callback():
         session["access_token"] = tokens["access_token"]
         session["refresh_token"] = tokens["refresh_token"]
         return "<h2>Connected to QuickBooks! You can close this window and return to the app.</h2>"
+    else:
+        return f"<h2>Failed to connect: {token_response.text}</h2>", 400
