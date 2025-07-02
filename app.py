@@ -36,6 +36,7 @@ def connect():
 
 @app.route("/callback")
 def callback():
+    print("Callback")
     auth_code = request.args.get("code")
     realm_id = request.args.get("realmId")
 
