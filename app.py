@@ -38,6 +38,10 @@ def connect():
 def callback():
     auth_code = request.args.get("code")
     realm_id = request.args.get("realmId")
+
+    if not auth_code or not realm_id:
+        return "<h2>Missing code or realm ID. Did QuickBooks redirect with valid params?</h2>", 400
+
     session["realm_id"] = realm_id
 
     token_response = requests.post(
@@ -58,6 +62,6 @@ def callback():
         tokens = token_response.json()
         session["access_token"] = tokens["access_token"]
         session["refresh_token"] = tokens["refresh_token"]
-        return "<h2>Connected to QuickBooks! You can close this window and return to the app.</h2>"
+        return "<h2>✅ Connected to QuickBooks! You can close this window.</h2>"
     else:
-        return f"<h2>Failed to connect: {token_response.text}</h2>", 400
+        return f"<h2>❌ Failed to connect: {token_response.text}</h2>", 400
