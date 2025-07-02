@@ -36,33 +36,43 @@ def connect():
 
 @app.route("/callback")
 def callback():
-    print("Callback")
-    auth_code = request.args.get("code")
-    realm_id = request.args.get("realmId")
+    try:
+        auth_code = request.args.get("code")
+        realm_id = request.args.get("realmId")
 
-    if not auth_code or not realm_id:
-        return "<h2>Missing code or realm ID. Did QuickBooks redirect with valid params?</h2>", 400
+        if not auth_code or not realm_id:
+            return "<h2>❌ Missing 'code' or 'realmId' in the URL. QuickBooks may have rejected the redirect.</h2>", 400
 
-    session["realm_id"] = realm_id
+        session["realm_id"] = realm_id
 
-    token_response = requests.post(
-        BASE_TOKEN_URL,
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"Basic {requests.auth._basic_auth_str(CLIENT_ID, CLIENT_SECRET)}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        data={
-            "grant_type": "authorization_code",
-            "code": auth_code,
-            "redirect_uri": REDIRECT_URI,
-        },
-    )
+        # Exchange auth code for tokens
+        token_response = requests.post(
+            BASE_TOKEN_URL,
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Basic {requests.auth._basic_auth_str(CLIENT_ID, CLIENT_SECRET)}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data={
+                "grant_type": "authorization_code",
+                "code": auth_code,
+                "redirect_uri": REDIRECT_URI,
+            },
+        )
 
-    if token_response.status_code == 200:
-        tokens = token_response.json()
-        session["access_token"] = tokens["access_token"]
-        session["refresh_token"] = tokens["refresh_token"]
-        return "<h2>✅ Connected to QuickBooks! You can close this window.</h2>"
-    else:
-        return f"<h2>❌ Failed to connect: {token_response.text}</h2>", 400
+        # Debug output
+        print("Token response status:", token_response.status_code)
+        print("Token response body:", token_response.text)
+
+        if token_response.status_code == 200:
+            tokens = token_response.json()
+            session["access_token"] = tokens["access_token"]
+            session["refresh_token"] = tokens["refresh_token"]
+            return "<h2>✅ Connected to QuickBooks! You can close this window.</h2>"
+        else:
+            return f"<h2>❌ Token request failed:<br><pre>{token_response.text}</pre></h2>", 400
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return f"<h2>❌ Exception during callback:<br><pre>{str(e)}</pre></h2>", 500
