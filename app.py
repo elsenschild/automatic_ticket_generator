@@ -32,6 +32,7 @@ def connect():
         "response_type": "code",
         "scope": SCOPE,
         "state": "random_csrf_token_here",
+        "prompt": "login",  # force login prompt
     }
     return redirect(f"{BASE_AUTH_URL}?{urlencode(query_params)}")
 
@@ -40,6 +41,9 @@ def callback():
     try:
         auth_code = request.args.get("code")
         realm_id = request.args.get("realmId")
+        print(f"[DEBUG] Code: {auth_code}")
+        print(f"[DEBUG] Realm ID: {realm_id}")
+
         if not auth_code or not realm_id:
             return "<h2>❌ Missing 'code' or 'realmId' in callback URL.</h2>", 400
 
@@ -48,6 +52,8 @@ def callback():
         import base64
         credentials = f"{CLIENT_ID}:{CLIENT_SECRET}"
         b64_credentials = base64.b64encode(credentials.encode()).decode()
+
+        print("[DEBUG] Requesting tokens...")
 
         token_response = requests.post(
             BASE_TOKEN_URL,
@@ -62,10 +68,22 @@ def callback():
                 "redirect_uri": REDIRECT_URI,
             },
         )
+
+        print(f"[DEBUG] Token response status: {token_response.status_code}")
+        print(f"[DEBUG] Token response body: {token_response.text}")
+
         if token_response.status_code == 200:
             tokens = token_response.json()
             session["access_token"] = tokens["access_token"]
             session["refresh_token"] = tokens["refresh_token"]
+            session["realm_id"] = realm_id
+
+            # Save tokens to qb_tokens.txt for fetch_invoices to use
+            with open("qb_tokens.txt", "w") as f:
+                f.write(f"access_token={tokens['access_token']}\n")
+                f.write(f"refresh_token={tokens['refresh_token']}\n")
+                f.write(f"realm_id={realm_id}\n")
+
             return '''
                 <h2>✅ Connected to QuickBooks!</h2>
                 <p><a href="/invoices"><button>📄 Get Invoices</button></a></p>
@@ -80,12 +98,26 @@ def callback():
 
 @app.route("/invoices")
 def invoices():
-    tokens = load_tokens()
-    if not tokens:
+    # Build tokens from session instead of file
+    print("Session contents:", dict(session))  # <--- add this
+
+    if "access_token" not in session or "realm_id" not in session:
         return "<h3>❌ Not connected to QuickBooks. Please connect first.</h3>", 400
+
+
+    tokens = {
+        "access_token": session["access_token"],
+        "refresh_token": session.get("refresh_token"),
+        "realm_id": session["realm_id"],
+    }
 
     invoices = fetch_invoices(tokens, invoice_num=10)
     return render_template("invoices.html", invoices=invoices)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return "<h2>Session cleared. You can <a href='/connect'>connect again</a>.</h2>"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))  # use 5051 if 5000 is taken
