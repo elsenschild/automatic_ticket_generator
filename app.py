@@ -1,5 +1,5 @@
 from flask import Flask, redirect, request, session, render_template
-from invoice_logic import load_tokens, fetch_invoices
+from invoice_logic import fetch_invoices
 import os
 import requests
 from urllib.parse import urlencode
@@ -32,7 +32,7 @@ def connect():
         "response_type": "code",
         "scope": SCOPE,
         "state": "random_csrf_token_here",
-        "prompt": "login",  # force login prompt
+        "prompt": "login consent",
     }
     return redirect(f"{BASE_AUTH_URL}?{urlencode(query_params)}")
 
@@ -77,12 +77,6 @@ def callback():
             session["access_token"] = tokens["access_token"]
             session["refresh_token"] = tokens["refresh_token"]
             session["realm_id"] = realm_id
-
-            # Save tokens to qb_tokens.txt for fetch_invoices to use
-            with open("qb_tokens.txt", "w") as f:
-                f.write(f"access_token={tokens['access_token']}\n")
-                f.write(f"refresh_token={tokens['refresh_token']}\n")
-                f.write(f"realm_id={realm_id}\n")
 
             return '''
                 <h2>✅ Connected to QuickBooks!</h2>

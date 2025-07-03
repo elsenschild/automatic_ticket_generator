@@ -10,35 +10,31 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
 API_BASE_URL = "https://sandbox-quickbooks.api.intuit.com"
 
-def load_tokens():
-    tokens = {}
-    try:
-        with open("qb_tokens.txt", "r") as f:
-            for line in f:
-                if "=" in line:
-                    key, value = line.strip().split("=", 1)
-                    tokens[key.strip()] = value.strip()
-    except FileNotFoundError:
-        return {}
-    return tokens
-
 def fetch_invoices(tokens, invoice_num=10):
-    access_token = tokens.get("access_token")
-    realm_id = tokens.get("realm_id")
-    if not access_token or not realm_id:
-        return []
-
+    access_token = tokens["access_token"]
+    realm_id = tokens["realm_id"]
     url = f"{API_BASE_URL}/v3/company/{realm_id}/query"
-    query = f"SELECT * FROM Invoice MAXRESULTS {invoice_num}"
+    query = f"SELECT * FROM Invoice STARTPOSITION 1 MAXRESULTS {invoice_num}"
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Accept": "application/json",
         "Content-Type": "application/text"
     }
-
     response = requests.get(url, headers=headers, params={"query": query})
+    
+    print(f"[DEBUG] Request URL: {response.url}")
+    print(f"[DEBUG] Status code: {response.status_code}")
+    print(f"[DEBUG] Response text: {response.text}")
+
+    if response.status_code == 401 and "Token expired" in response.text:
+        # handle token refresh (if you do)
+        pass
+
     if response.status_code == 200:
-        return response.json().get("QueryResponse", {}).get("Invoice", [])
+        data = response.json()
+        invoices = data.get("QueryResponse", {}).get("Invoice", [])
+        print(f"[DEBUG] Number of invoices found: {len(invoices)}")
+        return invoices
     else:
-        print("Error:", response.status_code, response.text)
+        print(f"[ERROR] Failed to fetch invoices: {response.status_code} {response.text}")
         return []
