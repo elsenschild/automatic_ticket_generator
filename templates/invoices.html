@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head><title>Invoices</title></head>
+<body>
+    <h1>Fetched Invoices</h1>
+    {% if invoices %}
+        <ul>
+        {% for inv in invoices %}
+            <li><strong>{{ inv.CustomerRef.name }}</strong> on {{ inv.TxnDate }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No invoices found.</p>
+    {% endif %}
+</body>
+</html>
