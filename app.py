@@ -37,14 +37,9 @@ def connect():
 
 @app.route("/callback")
 def callback():
-    print("Hello")
     try:
         auth_code = request.args.get("code")
-        realm_id = request.args.get("realmId")    
-        print("Received callback")
-        print("Auth code:", auth_code)
-        print("Realm ID:", realm_id)
-
+        realm_id = request.args.get("realmId")
         if not auth_code or not realm_id:
             return "<h2>❌ Missing 'code' or 'realmId' in callback URL.</h2>", 400
 
@@ -67,13 +62,15 @@ def callback():
                 "redirect_uri": REDIRECT_URI,
             },
         )
-        print("Status:", token_response.status_code)
-        print("Response body:", token_response.text)
         if token_response.status_code == 200:
             tokens = token_response.json()
             session["access_token"] = tokens["access_token"]
             session["refresh_token"] = tokens["refresh_token"]
-            return "<h2>✅ Connected to QuickBooks! You can close this window.</h2>"
+            return '''
+                <h2>✅ Connected to QuickBooks!</h2>
+                <p><a href="/invoices"><button>📄 Get Invoices</button></a></p>
+                <p>You can close this window after viewing invoices.</p>
+                '''
         else:
             return f"<h2>❌ Failed to get tokens:<br><pre>{token_response.text}</pre></h2>", 400
     except Exception as e:
