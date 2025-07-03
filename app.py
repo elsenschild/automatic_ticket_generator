@@ -36,21 +36,28 @@ def connect():
 
 @app.route("/callback")
 def callback():
+    print("Hello")
     try:
         auth_code = request.args.get("code")
-        realm_id = request.args.get("realmId")
+        realm_id = request.args.get("realmId")    
+        print("Received callback")
+        print("Auth code:", auth_code)
+        print("Realm ID:", realm_id)
 
         if not auth_code or not realm_id:
-            return "<h2>❌ Missing 'code' or 'realmId' in the URL. QuickBooks may have rejected the redirect.</h2>", 400
+            return "<h2>❌ Missing 'code' or 'realmId' in callback URL.</h2>", 400
 
         session["realm_id"] = realm_id
 
-        # Exchange auth code for tokens
+        import base64
+        credentials = f"{CLIENT_ID}:{CLIENT_SECRET}"
+        b64_credentials = base64.b64encode(credentials.encode()).decode()
+
         token_response = requests.post(
             BASE_TOKEN_URL,
             headers={
                 "Accept": "application/json",
-                "Authorization": f"Basic {requests.auth._basic_auth_str(CLIENT_ID, CLIENT_SECRET)}",
+                "Authorization": f"Basic {b64_credentials}",
                 "Content-Type": "application/x-www-form-urlencoded",
             },
             data={
@@ -59,20 +66,24 @@ def callback():
                 "redirect_uri": REDIRECT_URI,
             },
         )
-
-        # Debug output
-        print("Token response status:", token_response.status_code)
-        print("Token response body:", token_response.text)
-
+        print("Status:", token_response.status_code)
+        print("Response body:", token_response.text)
         if token_response.status_code == 200:
             tokens = token_response.json()
             session["access_token"] = tokens["access_token"]
             session["refresh_token"] = tokens["refresh_token"]
             return "<h2>✅ Connected to QuickBooks! You can close this window.</h2>"
         else:
-            return f"<h2>❌ Token request failed:<br><pre>{token_response.text}</pre></h2>", 400
-
+            return f"<h2>❌ Failed to get tokens:<br><pre>{token_response.text}</pre></h2>", 400
     except Exception as e:
         import traceback
         traceback.print_exc()
         return f"<h2>❌ Exception during callback:<br><pre>{str(e)}</pre></h2>", 500
+
+@app.route("/debug")
+def debug():
+    return f"REDIRECT_URI: {REDIRECT_URI}"
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))  # use 5051 if 5000 is taken
+    app.run(debug=True, host="0.0.0.0", port=port)
