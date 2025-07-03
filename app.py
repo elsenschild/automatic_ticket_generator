@@ -1,4 +1,5 @@
 from flask import Flask, redirect, request, session, render_template
+from invoice_logic import load_tokens, fetch_invoices
 import os
 import requests
 from urllib.parse import urlencode
@@ -80,9 +81,14 @@ def callback():
         traceback.print_exc()
         return f"<h2>❌ Exception during callback:<br><pre>{str(e)}</pre></h2>", 500
 
-@app.route("/debug")
-def debug():
-    return f"REDIRECT_URI: {REDIRECT_URI}"
+@app.route("/invoices")
+def invoices():
+    tokens = load_tokens()
+    if not tokens:
+        return "<h3>❌ Not connected to QuickBooks. Please connect first.</h3>", 400
+
+    invoices = fetch_invoices(tokens, invoice_num=10)
+    return render_template("invoices.html", invoices=invoices)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))  # use 5051 if 5000 is taken
