@@ -79,38 +79,36 @@ def create_ticket_from_group(row):
         ICodes=row[13]
     )
 
-def generate_previews(orders, pdf_template_path):
+def generate_previews(grouped_orders, pdf_template_path, progress_callback):
     """
     Generate temporary flattened PDFs for preview. Returns list of (path, group).
     """
     preview_pairs = []
-    grouped = group_orders(orders)
-    grouped.sort(key=lambda g: g[1])  # Sort by last name
 
-    for i, group in enumerate(grouped):
+    for index, group in enumerate(grouped_orders):
         ticket = create_ticket_from_group(group)
-        temp_path = os.path.join(tempfile.gettempdir(), f"preview_{i}.pdf")
+        temp_path = os.path.join(tempfile.gettempdir(), f"preview_{index}.pdf")
         fill_pdf(ticket, pdf_template_path, temp_path)
         flat_path = flatten_pdf(temp_path)
         preview_pairs.append((flat_path, group))
 
+        if progress_callback:
+            progress = ((index + 1) / len(grouped_orders)) * 100
+            progress_callback(progress)
+
     return preview_pairs
 
-def generate_tickets(orders, pdf_template_path, output_dir="output"):
+def generate_tickets(order, pdf_template_path, output_dir="output"):
     """
     Fill and save final tickets into the specified output folder.
     """
-    grouped = group_orders(orders)
     os.makedirs(output_dir, exist_ok=True)
-
-    for i, group in enumerate(grouped):
-        try:
-            ticket = create_ticket_from_group(group)
-        except ValueError as e:
-            print(f"Skipping group {i} due to error: {e}")
-            continue
-
-        name = f"{ticket.PatientFirstName}_{ticket.PatientLastName}"
-        filename = f"{sanitize_filename(name)}_{format_date(ticket.Date)}.pdf"
-        output_path = os.path.join(output_dir, filename)
-        fill_pdf(ticket, pdf_template_path, output_path)
+    try:
+        ticket = create_ticket_from_group(order)
+    except ValueError as e:
+        print(f"Skipping group  due to error: {e}")
+    
+    name = f"{ticket.PatientFirstName}_{ticket.PatientLastName}"
+    filename = f"{sanitize_filename(name)}_{format_date(ticket.Date)}.pdf"
+    output_path = os.path.join(output_dir, filename)
+    fill_pdf(ticket, pdf_template_path, output_path)

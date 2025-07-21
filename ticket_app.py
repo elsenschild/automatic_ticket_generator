@@ -1,13 +1,15 @@
 import tkinter as tk
 import os
+import threading
 from tkinter import messagebox, filedialog
 from instructions_window import show_instructions
 from tsv_handler import handle_tsv
-from pdf_handler import generate_tickets, generate_previews
+from pdf_handler import generate_tickets, generate_previews, group_orders
 from pdf2image import convert_from_path
 from PIL import Image, ImageTk
 from dropbox_sign import ApiClient, Configuration, apis, models
 from dropbox_sign.rest import ApiException
+from tkinter import ttk
 from tkinter.simpledialog import askstring
 from dropbox import send_signature_request
 
@@ -76,26 +78,66 @@ class TicketApp:
             self.data_path = path
             filename = os.path.basename(self.data_path)
             self.status_label.config(text=f"Quickbook TSV(s) Loaded. Loaded: {filename}")
+    
+    def _show_preview_and_close_loader(self, pdf_paths):
+        self.loading_window.destroy()
+        self.preview_tickets(pdf_paths)
+
+    def _generate_in_background_with_progress(self):
+        try:
+            orders, _ = handle_tsv(self.data_path)
+            orders.sort(key=lambda o: o[2].lower())
+            self.orders_for_preview = orders
+
+            grouped = group_orders(orders)
+            grouped.sort(key=lambda g: g[1])
+
+            def update_progress(progress):
+                # Update the progress bar value
+                self.root.after(0, lambda: self.progress_var.set(progress))
+                # Update the percentage label text, rounding to int for display
+                self.root.after(0, lambda: self.progress_label.config(text=f"{int(progress)}%"))
+
+            self.preview_data = generate_previews(grouped, self.pdf_path, progress_callback=update_progress)
+
+            pdf_paths = [p[0] for p in self.preview_data]
+            self.root.after(0, lambda: self._show_preview_and_close_loader(pdf_paths))
+
+        except Exception as e:
+            self.root.after(0, lambda: messagebox.showerror("Error", str(e)))
+            self.root.after(0, self.loading_window.destroy)
 
     def generate(self):
         if not self.data_path or not self.pdf_path:
             messagebox.showerror("Missing Files", "Please select TSV and PDF template.")
             return
 
-        orders, _ = handle_tsv(self.data_path)
-        orders.sort(key=lambda o: o[2].lower())
-        self.orders_for_preview = orders
+        self.loading_window = tk.Toplevel(self.root)
+        self.loading_window.title("Generating Tickets...")
+        self.loading_window.geometry("300x120")
+        self.loading_window.resizable(False, False)
 
-        self.preview_data = generate_previews(orders, self.pdf_path)
-        pdf_paths = [p[0] for p in self.preview_data]
-        self.preview_tickets(pdf_paths)
+        tk.Label(self.loading_window, text="Generating tickets, please wait...").pack(pady=(10, 5))
+
+        # Progress bar widget
+        self.progress_var = tk.DoubleVar()
+        self.progress_bar = ttk.Progressbar(self.loading_window, variable=self.progress_var, maximum=100)
+        self.progress_bar.pack(pady=(5, 10), fill='x', padx=20)
+
+        # Percentage label
+        self.progress_label = tk.Label(self.loading_window, text="0%")
+        self.progress_label.pack(pady=(0, 10))
+
+        # Start generation in background
+        threading.Thread(target=self._generate_in_background_with_progress).start()
 
     def load_pdf_images(self, pdf_path):
         pages = convert_from_path(pdf_path, dpi=150)
         first_page = pages[0]
-        w_percent = 800 / float(first_page.size[0])
+        max_width = 600
+        w_percent = max_width / float(first_page.size[0])
         h_size = int(float(first_page.size[1]) * w_percent)
-        first_page = first_page.resize((800, h_size), Image.ANTIALIAS)
+        first_page = first_page.resize((max_width, h_size), Image.Resampling.LANCZOS)
         self.preview_images = [ImageTk.PhotoImage(first_page)]
 
     def next_ticket(self):
@@ -150,9 +192,11 @@ class TicketApp:
 
     def show_current_image(self):
         self.preview_label.config(image=self.preview_images[0])
+        self.preview_label.image = self.preview_images[0]  # keep reference
         self.page_label.config(
             text=f"Ticket {self.current_pdf_index + 1} of {len(self.pdf_paths)}"
         )
+        self.preview_label.update_idletasks()  # Force update
 
     def send_to_docusign(self):
         if not self.pdf_paths:
