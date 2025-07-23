@@ -16,6 +16,12 @@ from dropbox import send_signature_request
 
 class TicketApp:
     def __init__(self, root):
+        """ 
+        Initialize the TicketApp GUI application.
+
+        Args:
+            root (tk.Tk): The root Tkinter window passed in from the main script.
+        """
         self.root = root
         self.root.title("PDF Ticket Generator")
 
@@ -26,6 +32,13 @@ class TicketApp:
         self.setup_welcome_screen()
 
     def hide_all_frames(self):
+        """
+        Hide all frame widgets in the application.
+
+        This method loops through all attributes of the class that end with '_frame'
+        and calls `pack_forget()` on each, effectively hiding them from view.
+        Useful when switching between different UI screens.
+        """
         for frame in [getattr(self, attr) for attr in dir(self) if attr.endswith("_frame")]:
             try:
                 frame.pack_forget()
@@ -33,6 +46,12 @@ class TicketApp:
                 pass
 
     def setup_welcome_screen(self):
+        """
+        Set up and display the welcome screen.
+
+        This screen introduces the user to the application and provides
+        buttons to view instructions or continue to the CSV upload screen.
+        """
         self.hide_all_frames()
         self.welcome_frame = tk.Frame(self.root)
         self.welcome_frame.pack(padx=20, pady=20)
@@ -44,6 +63,12 @@ class TicketApp:
         tk.Button(self.welcome_frame, text="Continue", command=self.show_csv_screen).pack(pady=(0, 5))
 
     def show_main_ui(self):
+        """
+        Set up and display the main UI screen.
+
+        Provides options to generate tickets and navigate back to data loading
+        or the welcome screen. Also shows the status label for feedback.
+        """
         self.hide_all_frames()
         self.main_frame = tk.Frame(self.root)
         self.main_frame.pack(pady=10)
@@ -56,6 +81,12 @@ class TicketApp:
         self.status_label.pack()
 
     def show_csv_screen(self):
+        """
+        Set up and display the CSV upload screen.
+
+        Allows the user to select a QuickBooks TSV file for processing,
+        and provides navigation to the next step or back to the welcome screen.
+        """
         self.hide_all_frames()
         self.csv_frame = tk.Frame(self.root)
         self.csv_frame.pack(pady=10)
@@ -69,10 +100,19 @@ class TicketApp:
         tk.Button(self.csv_frame, text="Back to Welcome", command=self.back_to_welcome).pack(pady=5)
 
     def back_to_welcome(self):
+        """
+        Return to the welcome screen by hiding all frames and showing the welcome frame.
+        """
         self.hide_all_frames()
         self.welcome_frame.pack()
 
     def load_qb_data_tsv(self):
+        """
+        Prompt the user to select a QuickBooks TSV file.
+
+        Sets the selected file path to `self.data_path` and updates the status label
+        to confirm the file was loaded.
+        """
         path = filedialog.askopenfilename(filetypes=[("TSV files", "*.tsv")])
         if path:
             self.data_path = path
@@ -80,15 +120,34 @@ class TicketApp:
             self.status_label.config(text=f"Quickbook TSV(s) Loaded. Loaded: {filename}")
     
     def _show_preview_and_close_loader(self, pdf_paths):
+        """
+        Close the loading window and display the preview of generated PDF tickets.
+
+        Args:
+            pdf_paths (list[str]): List of file paths to the generated preview PDFs.
+        """
         self.loading_window.destroy()
         self.preview_tickets(pdf_paths)
 
     def _generate_in_background_with_progress(self):
+        """
+        Generate preview tickets in a background thread while updating progress UI.
+
+        - Processes the loaded TSV file,
+        - Groups and sorts orders,
+        - Generates previews with a progress callback,
+        - Displays the preview once done.
+
+        On failure, shows an error message and closes the loader window.
+        """
+        orders, _ = handle_tsv(self.data_path)
+        orders.sort(key=lambda o: o[2].lower())
+        self.orders_for_preview = orders
         try:
             orders, _ = handle_tsv(self.data_path)
             orders.sort(key=lambda o: o[2].lower())
             self.orders_for_preview = orders
-
+ 
             grouped = group_orders(orders)
             grouped.sort(key=lambda g: g[1])
 
@@ -104,10 +163,16 @@ class TicketApp:
             self.root.after(0, lambda: self._show_preview_and_close_loader(pdf_paths))
 
         except Exception as e:
-            self.root.after(0, lambda: messagebox.showerror("Error", str(e)))
+            self.root.after(0, lambda e=e: messagebox.showerror("Error", str(e)))
             self.root.after(0, self.loading_window.destroy)
 
     def generate(self):
+        """
+        Start the ticket generation process.
+
+        Verifies required files are selected, then opens a loading window
+        with a progress bar and starts background ticket generation.
+        """
         if not self.data_path or not self.pdf_path:
             messagebox.showerror("Missing Files", "Please select TSV and PDF template.")
             return
@@ -132,6 +197,15 @@ class TicketApp:
         threading.Thread(target=self._generate_in_background_with_progress).start()
 
     def load_pdf_images(self, pdf_path):
+        """
+        Load the first page of a PDF file as a resized preview image.
+
+        Converts the first page of the specified PDF to an image,
+        resizes it to fit within 600px width, and stores it in `self.preview_images`.
+        
+        Args:
+            pdf_path (str): Path to the PDF file to preview.
+        """
         pages = convert_from_path(pdf_path, dpi=150)
         first_page = pages[0]
         max_width = 600
@@ -141,18 +215,42 @@ class TicketApp:
         self.preview_images = [ImageTk.PhotoImage(first_page)]
 
     def next_ticket(self):
+        """
+        Navigate to the next ticket in the preview list.
+
+        Loops back to the first ticket if the end is reached.
+        Loads and displays the corresponding preview image.
+        """
         if self.current_pdf_index + 1 < len(self.pdf_paths):
             self.current_pdf_index += 1
-            self.load_pdf_images(self.pdf_paths[self.current_pdf_index])
-            self.show_current_image()
+        else:
+            self.current_pdf_index = 0
+        self.load_pdf_images(self.pdf_paths[self.current_pdf_index])
+        self.show_current_image()
 
     def prev_ticket(self):
+        """
+        Navigate to the previous ticket in the preview list.
+
+        Loops to the last ticket if the beginning is passed.
+        Loads and displays the corresponding preview image.
+        """
         if self.current_pdf_index > 0:
             self.current_pdf_index -= 1
-            self.load_pdf_images(self.pdf_paths[self.current_pdf_index])
-            self.show_current_image()
+        else: 
+            self.current_pdf_index = len(self.pdf_paths) - 1
+        self.load_pdf_images(self.pdf_paths[self.current_pdf_index])
+        self.show_current_image()
 
     def remove_ticket(self):
+        """
+        Remove the currently previewed ticket from the list.
+
+        Prompts for confirmation. If confirmed, deletes the current ticket
+        from both `self.pdf_paths` and `self.preview_data`.
+
+        Closes the preview window if no tickets remain.
+        """
         if not self.pdf_paths or not self.preview_data:
             return
 
@@ -175,9 +273,21 @@ class TicketApp:
         self.show_current_image()
 
     def choose_output_directory(self):
+        """
+        Open a dialog for the user to choose a directory to save tickets.
+
+        Returns:
+            str: The selected directory path, or an empty string if cancelled.
+        """
         return filedialog.askdirectory(title="Choose folder to save tickets")
 
     def save_all_tickets(self):
+        """
+        Save all remaining tickets to a user-selected directory.
+
+        Validates that orders are loaded and prompts for output folder.
+        Uses the ticket template to generate and save final PDF tickets.
+        """
         if not self.orders_for_preview:
             messagebox.showerror("Error", "No orders loaded")
             return
@@ -191,6 +301,11 @@ class TicketApp:
         messagebox.showinfo("Saved", f"All tickets saved to:\n{output_dir}")
 
     def show_current_image(self):
+        """
+        Display the currently loaded preview image in the preview UI.
+
+        Updates both the image and the page label showing current index.
+        """
         self.preview_label.config(image=self.preview_images[0])
         self.preview_label.image = self.preview_images[0]  # keep reference
         self.page_label.config(
@@ -199,12 +314,45 @@ class TicketApp:
         self.preview_label.update_idletasks()  # Force update
 
     def send_to_docusign(self):
+        """
+        Send the currently previewed ticket PDF for signature via Dropbox Sign.
+
+        - Retrieves the ticket info and signer email from the preview data.
+        - Prompts the user for the signer's name (and email if missing).
+        - Calls `send_signature_request()` with the signer info and PDF path.
+        - Displays a success or error message based on the result.
+        
+        If required data is missing or invalid, displays appropriate error dialogs.
+        """
         if not self.pdf_paths:
             messagebox.showerror("Error", "No tickets available to send.")
             return
 
-        signer_name = askstring("Signer Name", "Enter recipient's full name:")
-        signer_email = askstring("Signer Email", "Enter recipient's email address:")
+        # Get the TicketInfo object for the current ticket
+        try:
+            _, ticket_info, signer_email = self.preview_data[self.current_pdf_index]
+            signer_name = askstring("Signer Name", "Enter recipient's full name:")
+            if signer_name is None:
+                # User clicked "Cancel"
+                messagebox.showinfo("Cancelled", "Signature request cancelled.")
+                return
+
+            signer_name = signer_name.strip()
+            if not signer_name:
+                # User submitted blank input
+                messagebox.showerror("Missing Name", "Signer name cannot be empty.")
+                return
+
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not extract ticket info: {e}")
+            return
+
+        if not signer_email:
+            signer_email = askstring("Missing Email", "Enter recipient's email address:")
+            if not signer_email:
+                return
+
         current_pdf_path = self.pdf_paths[self.current_pdf_index]
 
         try:
@@ -222,6 +370,20 @@ class TicketApp:
             messagebox.showerror("Error", str(e))
 
     def preview_tickets(self, pdf_paths):
+        """
+        Launch a new window to preview, navigate, delete, save, or send tickets.
+
+        Args:
+            pdf_paths (list[str]): List of file paths to generated preview PDFs.
+
+        Creates a scrollable preview interface with:
+        - PDF image display,
+        - Page navigation controls (Next, Prev),
+        - Save and remove buttons,
+        - Option to send to Dropbox Sign.
+
+        Also binds arrow keys for easier navigation.
+        """
         if not pdf_paths:
             messagebox.showerror("Error", "No PDFs to preview.")
             return

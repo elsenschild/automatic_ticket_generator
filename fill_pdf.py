@@ -1,6 +1,14 @@
 import fitz  # PyMuPDF
 
 def flatten_once(lst):
+    """Flatten a list of lists into a single list.
+    
+    Args:
+        list (list): A list of lists found in a invoice.
+
+    Returns:
+        A single list of items.
+    """
     flat = []
     for el in lst:
         if isinstance(el, list):
@@ -10,6 +18,16 @@ def flatten_once(lst):
     return flat
 
 def fill_pdf(ticket, template_path, output_path):
+    """Fill a PDF template with data from a ticket and save it to a file.
+
+    Args:
+        ticket (dict): A dictionary containing the data to fill the template.
+        template_path (str): The path to the PDF template.
+        output_path (str): The path to save the filled PDF.
+    
+    Returns:
+        None
+    """
     doc = fitz.open(template_path)
     data = ticket.__dict__.copy()
     data["PatientName"] = f"{ticket.PatientFirstName} {ticket.PatientLastName}".strip()
@@ -17,7 +35,6 @@ def fill_pdf(ticket, template_path, output_path):
     # Flatten HCodes list (one level) and get first word of each code string
     if "HCodes" in data and isinstance(data["HCodes"], list):
         flat_hcodes = flatten_once(data["HCodes"])
-        data["HCodes"] = [code.split()[0] for code in flat_hcodes if isinstance(code, str) and code.strip()]
     else:
         data["HCodes"] = []
 
