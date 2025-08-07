@@ -120,15 +120,15 @@ def create_ticket_from_group(row):
     if len(row) < 14:
         raise ValueError("Each row in a group must have at least 14 columns.")
     return TicketInfo(
-        PatientFirstName=row[0],
-        PatientLastName=row[1],
-        AccountNum=row[2],
-        StreetAddress=row[3],
-        City=row[4],
-        State=row[5],
-        Zip=row[6],
-        Telephone=row[7],
-        Date=row[8],
+        Date=row[0],
+        PatientFirstName=row[1],
+        PatientLastName=row[2],
+        AccountNum=row[3],
+        StreetAddress=row[4],
+        City=row[5],
+        State=row[6],
+        Zip=row[7],
+        Telephone=row[8],
         EmailAddress=row[9],
         Units=row[10],
         HCodes=row[11],
@@ -163,17 +163,23 @@ def generate_previews(grouped_orders, pdf_template_path, progress_callback):
 
     return preview_pairs
 
-def generate_tickets(order, pdf_template_path, output_dir="output"):
+def generate_tickets(orders, pdf_template_path, output_dir="output"):
     """
     Fill and save final tickets into the specified output folder.
     """
-    os.makedirs(output_dir, exist_ok=True)
-    try:
-        ticket = create_ticket_from_group(order)
-    except ValueError as e:
-        print(f"Skipping group  due to error: {e}")
-    
-    name = f"{ticket.PatientFirstName}_{ticket.PatientLastName}"
-    filename = f"{sanitize_filename(name)}_{format_date(ticket.Date)}.pdf"
-    output_path = os.path.join(output_dir, filename)
-    fill_pdf(ticket, pdf_template_path, output_path)
+    for order in orders:
+        os.makedirs(output_dir, exist_ok=True)
+        print("Order:", order)
+        try:
+            ticket = create_ticket_from_group(order)
+        except ValueError as e:
+            print(f"Skipping group  due to error: {e}")
+        
+        name = f"{ticket.PatientFirstName}_{ticket.PatientLastName}"
+        if ticket.EmailAddress == "":
+            folder = "mailed"
+        else:
+            folder = "emailed"
+        filename = f"{folder}/{sanitize_filename(name)}_{format_date(ticket.Date)}.pdf"
+        output_path = os.path.join(output_dir, filename)
+        fill_pdf(ticket, pdf_template_path, output_path)

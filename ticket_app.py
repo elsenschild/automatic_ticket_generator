@@ -3,7 +3,7 @@ import os
 import threading
 from tkinter import messagebox, filedialog
 from instructions_window import show_instructions
-from tsv_handler import handle_tsv
+from tsv_handler import handle_file
 from pdf_handler import generate_tickets, generate_previews, group_orders
 from pdf2image import convert_from_path
 from PIL import Image, ImageTk
@@ -12,7 +12,7 @@ from dropbox_sign.rest import ApiException
 from tkinter import ttk
 from tkinter.simpledialog import askstring
 from dropbox import send_signature_request
-
+import sys
 
 class TicketApp:
     def __init__(self, root):
@@ -50,17 +50,17 @@ class TicketApp:
         Set up and display the welcome screen.
 
         This screen introduces the user to the application and provides
-        buttons to view instructions or continue to the CSV upload screen.
+        buttons to view instructions or continue to the Excel/TSV upload screen.
         """
         self.hide_all_frames()
         self.welcome_frame = tk.Frame(self.root)
         self.welcome_frame.pack(padx=20, pady=20)
 
         tk.Label(self.welcome_frame, text="Welcome to the PDF Ticket Generator!", font=("Arial", 14)).pack(pady=(10, 5))
-        tk.Label(self.welcome_frame, text="Follow the steps to generate tickets from your TSV file.", font=("Arial", 10)).pack(pady=(0, 15))
+        tk.Label(self.welcome_frame, text="Follow the steps to generate tickets from your Excel file.", font=("Arial", 10)).pack(pady=(0, 15))
 
         tk.Button(self.welcome_frame, text="See instructions to extract claims from Quickbook", command=lambda: show_instructions(self.root)).pack(pady=(0, 5))
-        tk.Button(self.welcome_frame, text="Continue", command=self.show_csv_screen).pack(pady=(0, 5))
+        tk.Button(self.welcome_frame, text="Continue", command=self.show_excel_screen).pack(pady=(0, 5))
 
     def show_main_ui(self):
         """
@@ -74,30 +74,30 @@ class TicketApp:
         self.main_frame.pack(pady=10)
 
         tk.Button(self.main_frame, text="Generate Tickets", command=self.generate).pack(pady=20)
-        tk.Button(self.main_frame, text="Back to Load Data", command=self.show_csv_screen)
+        tk.Button(self.main_frame, text="Back to Load Data", command=self.show_excel_screen)
         tk.Button(self.main_frame, text="Back to Welcome", command=self.back_to_welcome).pack(pady=(0, 10))
 
         self.status_label = tk.Label(self.main_frame, text="", fg="green", font=("Arial", 10))
         self.status_label.pack()
 
-    def show_csv_screen(self):
+    def show_excel_screen(self):
         """
-        Set up and display the CSV upload screen.
+        Set up and display the excel upload screen.
 
-        Allows the user to select a QuickBooks TSV file for processing,
+        Allows the user to select a QuickBooks Excel file for processing,
         and provides navigation to the next step or back to the welcome screen.
         """
         self.hide_all_frames()
-        self.csv_frame = tk.Frame(self.root)
-        self.csv_frame.pack(pady=10)
+        self.excel_frame = tk.Frame(self.root)
+        self.excel_frame.pack(pady=10)
 
-        tk.Label(self.csv_frame, text="Load the QuickBook TSV File", font=("Arial", 12)).pack(pady=(0, 10))
-        self.status_label = tk.Label(self.csv_frame, text="", fg="green", font=("Arial", 10))
+        tk.Label(self.excel_frame, text="Load the QuickBook Excel File", font=("Arial", 12)).pack(pady=(0, 10))
+        self.status_label = tk.Label(self.excel_frame, text="", fg="green", font=("Arial", 10))
         self.status_label.pack(pady=10)
 
-        tk.Button(self.csv_frame, text="Select Quickbook File", command=self.load_qb_data_tsv).pack(pady=5)
-        tk.Button(self.csv_frame, text="Next", command=self.show_main_ui).pack(pady=(20, 5))
-        tk.Button(self.csv_frame, text="Back to Welcome", command=self.back_to_welcome).pack(pady=5)
+        tk.Button(self.excel_frame, text="Select Quickbook File", command=self.load_qb_data_excel).pack(pady=5)
+        tk.Button(self.excel_frame, text="Next", command=self.show_main_ui).pack(pady=(20, 5))
+        tk.Button(self.excel_frame, text="Back to Welcome", command=self.back_to_welcome).pack(pady=5)
 
     def back_to_welcome(self):
         """
@@ -106,18 +106,19 @@ class TicketApp:
         self.hide_all_frames()
         self.welcome_frame.pack()
 
-    def load_qb_data_tsv(self):
+    def load_qb_data_excel(self):
         """
-        Prompt the user to select a QuickBooks TSV file.
+        Prompt the user to select a QuickBooks excel file.
 
         Sets the selected file path to `self.data_path` and updates the status label
         to confirm the file was loaded.
         """
-        path = filedialog.askopenfilename(filetypes=[("TSV files", "*.tsv")])
+        path = filedialog.askopenfilename(
+            filetypes=[("QuickBooks files", "*.tsv *.xlsx *.xls"), ("All Files", "*.*")])
         if path:
             self.data_path = path
             filename = os.path.basename(self.data_path)
-            self.status_label.config(text=f"Quickbook TSV(s) Loaded. Loaded: {filename}")
+            self.status_label.config(text=f"Quickbook Data file(s) Loaded. Loaded: {filename}")
     
     def _show_preview_and_close_loader(self, pdf_paths):
         """
@@ -133,18 +134,18 @@ class TicketApp:
         """
         Generate preview tickets in a background thread while updating progress UI.
 
-        - Processes the loaded TSV file,
+        - Processes the loaded Excel/TSV file,
         - Groups and sorts orders,
         - Generates previews with a progress callback,
         - Displays the preview once done.
 
         On failure, shows an error message and closes the loader window.
         """
-        orders, _ = handle_tsv(self.data_path)
+        orders, _ = handle_file(self.data_path)
         orders.sort(key=lambda o: o[2].lower())
         self.orders_for_preview = orders
         try:
-            orders, _ = handle_tsv(self.data_path)
+            orders, _ = handle_file(self.data_path)
             orders.sort(key=lambda o: o[2].lower())
             self.orders_for_preview = orders
  
@@ -174,13 +175,14 @@ class TicketApp:
         with a progress bar and starts background ticket generation.
         """
         if not self.data_path or not self.pdf_path:
-            messagebox.showerror("Missing Files", "Please select TSV and PDF template.")
+            messagebox.showerror("Missing Files", "Please select Excel/TSV and PDF template.")
             return
-
+        
         self.loading_window = tk.Toplevel(self.root)
         self.loading_window.title("Generating Tickets...")
         self.loading_window.geometry("300x120")
         self.loading_window.resizable(False, False)
+        self.loading_window.protocol("WM_DELETE_WINDOW", lambda: None)  # Prevent closing
 
         tk.Label(self.loading_window, text="Generating tickets, please wait...").pack(pady=(10, 5))
 
@@ -196,6 +198,23 @@ class TicketApp:
         # Start generation in background
         threading.Thread(target=self._generate_in_background_with_progress).start()
 
+    def resource_path(self, relative_path):
+        """
+        Get the absolute path to a resource, whether running as a script or as a PyInstaller bundle.
+
+        Parameters:
+            relative_path (str): The relative path to the resource (e.g., 'assets/image.png').
+
+        Returns:
+            str: The absolute path to the resource file.
+        """
+        try: 
+            # PyInstaller creates a temp folder and stores path in _MEIPASS
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.abspath(".")
+        return os.path.join(base_path, relative_path)
+
     def load_pdf_images(self, pdf_path):
         """
         Load the first page of a PDF file as a resized preview image.
@@ -206,6 +225,7 @@ class TicketApp:
         Args:
             pdf_path (str): Path to the PDF file to preview.
         """
+        poppler_bin_path = self.resource_path('assets/poppler/Library/bin')
         pages = convert_from_path(pdf_path, dpi=150)
         first_page = pages[0]
         max_width = 600
@@ -296,7 +316,7 @@ class TicketApp:
         if not output_dir:
             return
 
-        orders_remaining = [group for _, group in self.preview_data]
+        orders_remaining = [group for _, group, _ in self.preview_data]
         generate_tickets(orders_remaining, self.pdf_path, output_dir)
         messagebox.showinfo("Saved", f"All tickets saved to:\n{output_dir}")
 
@@ -331,17 +351,13 @@ class TicketApp:
         # Get the TicketInfo object for the current ticket
         try:
             _, ticket_info, signer_email = self.preview_data[self.current_pdf_index]
-            signer_name = askstring("Signer Name", "Enter recipient's full name:")
+            signer_name = "John Doe"
             if signer_name is None:
                 # User clicked "Cancel"
                 messagebox.showinfo("Cancelled", "Signature request cancelled.")
                 return
 
             signer_name = signer_name.strip()
-            if not signer_name:
-                # User submitted blank input
-                messagebox.showerror("Missing Name", "Signer name cannot be empty.")
-                return
 
             
         except Exception as e:

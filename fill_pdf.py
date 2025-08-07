@@ -30,11 +30,11 @@ def fill_pdf(ticket, template_path, output_path):
     """
     doc = fitz.open(template_path)
     data = ticket.__dict__.copy()
-    data["PatientName"] = f"{ticket.PatientFirstName} {ticket.PatientLastName}".strip()
+    data["PatientName"] = f"{ticket.PatientLastName}. {ticket.PatientFirstName} ".strip()
 
     # Flatten HCodes list (one level) and get first word of each code string
     if "HCodes" in data and isinstance(data["HCodes"], list):
-        flat_hcodes = flatten_once(data["HCodes"])
+        data["Hcodes"] = flatten_once(data["HCodes"])
     else:
         data["HCodes"] = []
 
