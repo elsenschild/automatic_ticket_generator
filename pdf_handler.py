@@ -76,7 +76,7 @@ def same_order(order1, order2):
     Returns: 
         bool: True if the two rows are a part of the same ticket, False otherwise.
     """
-    return all(order1[i] == order2[i] for i in range(9))
+    return all(order1[i] == order2[i] for i in range(10))
 
 
 def group_orders(orders):
@@ -92,17 +92,17 @@ def group_orders(orders):
     i = 0
     while i < len(orders):
         j = i + 1
-        base = orders[i][:10]  # Shared patient/order info
-        units = [orders[i][10]]
-        hcodes = [orders[i][11]]
-        descriptions = [orders[i][12]]
-        icodes = [orders[i][13]]
+        base = orders[i][:11]  # Shared patient/order info
+        units = [orders[i][11]]
+        hcodes = [orders[i][12]]
+        descriptions = [orders[i][13]]
+        icodes = [orders[i][14]]
 
         while j < len(orders) and same_order(orders[i], orders[j]):
-            units.append(orders[j][10])
-            hcodes.append(orders[j][11])
-            descriptions.append(orders[j][12])
-            icodes.append(orders[j][13])
+            units.append(orders[j][11])
+            hcodes.append(orders[j][12])
+            descriptions.append(orders[j][13])
+            icodes.append(orders[j][14])
             j += 1
 
         group = base + [units, hcodes, descriptions, icodes]
@@ -122,23 +122,33 @@ def create_ticket_from_group(row):
     Returns: 
         dict (TicketInfo): A dictionary containing the ticket information.
     """
-    if len(row) < 14:
-        raise ValueError("Each row in a group must have at least 14 columns.")
+    if len(row) < 15:
+        raise ValueError("Each row in a group must have at least 15 columns.")
+    
+    # Ensure blank or NaN email and middle initial stays as an empty string
+    middle_intial = row[2]
+    if not middle_intial or str(middle_intial).strip().lower() == "nan":
+        middle_intial = ""
+    email = row[10]
+    if not email or str(email).strip().lower() == "nan":
+        email = ""
+
     return TicketInfo(
         Date=row[0],
         PatientFirstName=row[1],
-        PatientLastName=row[2],
-        AccountNum=row[3],
-        StreetAddress=row[4],
-        City=row[5],
-        State=row[6],
-        Zip=row[7],
-        Telephone=row[8],
-        EmailAddress=row[9],
-        Units=row[10],
-        HCodes=row[11],
-        CodeDescriptions=row[12],
-        ICodes=row[13]
+        PatientMiddleIntial=middle_intial,
+        PatientLastName=row[3],
+        AccountNum=row[4],
+        StreetAddress=row[5],
+        City=row[6],
+        State=row[7],
+        Zip=row[8],
+        Telephone=row[9],
+        EmailAddress=email,
+        Units=row[11],
+        HCodes=row[12],
+        CodeDescriptions=row[13],
+        ICodes=row[14]
     )
 
 def generate_previews(grouped_orders, pdf_template_path, progress_callback):
@@ -179,7 +189,7 @@ def generate_tickets(orders, pdf_template_path, output_dir="output"):
         except ValueError as e:
             print(f"Skipping group  due to error: {e}")
         
-        name = f"{ticket.PatientFirstName}_{ticket.PatientLastName}"
+        name = f"{ticket.PatientFirstName}_{ticket.PatientLastName.replace(' ', '_')}_{ticket.PatientMiddleIntial}"
         subfolder = "emailed" if ticket.EmailAddress else "mailed"
         filename = f"{sanitize_filename(name)}_{format_date(ticket.Date)}.pdf"
         folder_path = os.path.join(output_dir, subfolder)

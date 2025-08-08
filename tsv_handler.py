@@ -122,20 +122,18 @@ def handle_file(input_path):
             description = row.get("Product/service description", "")
 
             if is_valid_quantity(quantity) and sku != '':
-                zip_code = row.get("Customer ship zip", "")
-                zip_str = str(int(zip_code))
-
                 hcpcs_code = category.split()[0] if category else ''
 
                 new_row = [
                     row.get("Date", ""),
                     row.get("Customer first name", ""),
+                    safe_str(row.get("Customer middle name", "")),
                     row.get("Customer last name", ""),
                     safe_str(row.get("Account number", "")),
                     row.get("Customer ship street", ""),
                     row.get("Customer ship city", ""),
                     row.get("Customer ship state", ""),
-                    zip_str,
+                    row.get("Customer ship zip", ""),
                     row.get("Customer phone", ""),
                     row.get("Customer email", ""),
                     str(quantity).strip(),

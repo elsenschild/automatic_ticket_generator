@@ -12,7 +12,7 @@ def flatten_once(lst):
 def fill_pdf(ticket, template_path, output_path, flatten=True):
     doc = fitz.open(template_path)
     data = ticket.__dict__.copy()
-    data["PatientName"] = f"{ticket.PatientLastName}. {ticket.PatientFirstName}".strip()
+    data["PatientName"] = f"{ticket.PatientLastName}, {ticket.PatientFirstName}".strip()
 
     if "HCodes" in data and isinstance(data["HCodes"], list):
         data["HCodes"] = flatten_once(data["HCodes"])

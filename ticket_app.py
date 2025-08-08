@@ -141,16 +141,16 @@ class TicketApp:
 
         On failure, shows an error message and closes the loader window.
         """
-        orders, _ = handle_file(self.data_path)
-        orders.sort(key=lambda o: o[2].lower())
-        self.orders_for_preview = orders
+        #orders, _ = handle_file(self.data_path)
+        #orders.sort(key=lambda o: o[3].lower())
+        #self.orders_for_preview = orders
         try:
             orders, _ = handle_file(self.data_path)
-            orders.sort(key=lambda o: o[2].lower())
+            orders.sort(key=lambda o: o[3].lower())
             self.orders_for_preview = orders
  
             grouped = group_orders(orders)
-            grouped.sort(key=lambda g: g[1])
+            grouped.sort(key=lambda g: g[3])
 
             def update_progress(progress):
                 # Update the progress bar value

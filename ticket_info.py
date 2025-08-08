@@ -23,6 +23,7 @@ class TicketInfo:
         ICodes (List[str]): Internal or inventory codes (optional additional identifiers).
     """
     PatientFirstName: str
+    PatientMiddleIntial:str
     PatientLastName: str
     AccountNum: int
     StreetAddress: str
@@ -35,5 +36,4 @@ class TicketInfo:
     Units: List[int] = field(default_factory=list)
     HCodes: List[str] = field(default_factory=list)
     CodeDescriptions: List[str] = field(default_factory=list)
-    ICodes: List[str] = field(default_factory=list)
-    
+    ICodes: List[str] = field(default_factory=list)    
