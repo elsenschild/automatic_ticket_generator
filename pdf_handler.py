@@ -18,16 +18,21 @@ def flatten_pdf(path):
         str: Path to the flattened PDF file.
     """
     doc = fitz.open(path)
+
     for page in doc:
         widgets = page.widgets()
         if widgets:
             for widget in widgets:
+                # Ensure appearance is generated for all fields, especially checkboxes
+                if widget.field_type == fitz.PDF_WIDGET_TYPE_CHECKBOX:
+                    widget.field_value = widget.field_value  # Force assignment
                 widget.update()
         page.wrap_contents()
 
     flat_path = path.replace(".pdf", "_flat.pdf")
     doc.save(flat_path, incremental=False, deflate=True)
     return flat_path
+
 
 def format_date(date_str):
     """
@@ -153,7 +158,7 @@ def generate_previews(grouped_orders, pdf_template_path, progress_callback):
     for index, group in enumerate(grouped_orders):
         ticket = create_ticket_from_group(group)
         temp_path = os.path.join(tempfile.gettempdir(), f"preview_{index}.pdf")
-        fill_pdf(ticket, pdf_template_path, temp_path)
+        fill_pdf(ticket, pdf_template_path, temp_path, flatten=True)
         flat_path = flatten_pdf(temp_path)
         preview_pairs.append((flat_path, group, ticket.EmailAddress))
 
@@ -169,17 +174,15 @@ def generate_tickets(orders, pdf_template_path, output_dir="output"):
     """
     for order in orders:
         os.makedirs(output_dir, exist_ok=True)
-        print("Order:", order)
         try:
             ticket = create_ticket_from_group(order)
         except ValueError as e:
             print(f"Skipping group  due to error: {e}")
         
         name = f"{ticket.PatientFirstName}_{ticket.PatientLastName}"
-        if ticket.EmailAddress == "":
-            folder = "mailed"
-        else:
-            folder = "emailed"
-        filename = f"{folder}/{sanitize_filename(name)}_{format_date(ticket.Date)}.pdf"
-        output_path = os.path.join(output_dir, filename)
+        subfolder = "emailed" if ticket.EmailAddress else "mailed"
+        filename = f"{sanitize_filename(name)}_{format_date(ticket.Date)}.pdf"
+        folder_path = os.path.join(output_dir, subfolder)
+        os.makedirs(folder_path, exist_ok=True)
+        output_path = os.path.join(folder_path, filename)
         fill_pdf(ticket, pdf_template_path, output_path)
