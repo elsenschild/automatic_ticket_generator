@@ -350,7 +350,7 @@ class TicketApp:
 
         # Get the TicketInfo object for the current ticket
         try:
-            _, ticket_info, signer_email = self.preview_data[self.current_pdf_index]
+            _, _, signer_email = self.preview_data[self.current_pdf_index]
             signer_name = "John Doe"
             if signer_name is None:
                 # User clicked "Cancel"
@@ -359,7 +359,6 @@ class TicketApp:
 
             signer_name = signer_name.strip()
 
-            
         except Exception as e:
             messagebox.showerror("Error", f"Could not extract ticket info: {e}")
             return
