@@ -190,6 +190,8 @@ def generate_tickets(orders, pdf_template_path, output_dir="output"):
             print(f"Skipping group  due to error: {e}")
         
         name = f"{ticket.PatientLastName}, {ticket.PatientFirstName}"
+        if len(ticket.PatientMiddleIntial):
+            name = f"{ticket.PatientLastName} {ticket.PatientMiddleIntial}, {ticket.PatientFirstName}"
         subfolder = "emailed" if ticket.EmailAddress else "mailed"
         filename = f"{sanitize_filename(name)} delivery ticket {format_date(ticket.Date)}.pdf"
         folder_path = os.path.join(output_dir, subfolder)
