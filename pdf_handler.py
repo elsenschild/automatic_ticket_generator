@@ -189,9 +189,9 @@ def generate_tickets(orders, pdf_template_path, output_dir="output"):
         except ValueError as e:
             print(f"Skipping group  due to error: {e}")
         
-        name = f"{ticket.PatientFirstName}_{ticket.PatientLastName.replace(' ', '_')}_{ticket.PatientMiddleIntial}"
+        name = f"{ticket.PatientLastName}, {ticket.PatientFirstName}"
         subfolder = "emailed" if ticket.EmailAddress else "mailed"
-        filename = f"{sanitize_filename(name)}_{format_date(ticket.Date)}.pdf"
+        filename = f"{sanitize_filename(name)} delivery ticket {format_date(ticket.Date)}.pdf"
         folder_path = os.path.join(output_dir, subfolder)
         os.makedirs(folder_path, exist_ok=True)
         output_path = os.path.join(folder_path, filename)
