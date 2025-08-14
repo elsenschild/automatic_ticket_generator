@@ -214,6 +214,19 @@ class TicketApp:
         except Exception:
             base_path = os.path.abspath(".")
         return os.path.join(base_path, relative_path)
+    
+    def get_poppler_path(self):
+        """
+        Returns the path to Poppler's bin folder.
+        Works both when running main.py and when running as a PyInstaller exe.
+        """
+        # Use resource_path to get the correct path whether in exe or script
+        poppler_dir = self.resource_path(os.path.join("assets", "poppler", "Library", "bin"))
+
+        if not os.path.exists(poppler_dir):
+            raise FileNotFoundError(f"Poppler not found at {poppler_dir}")
+
+        return poppler_dir
 
     def load_pdf_images(self, pdf_path):
         """
@@ -225,8 +238,8 @@ class TicketApp:
         Args:
             pdf_path (str): Path to the PDF file to preview.
         """
-        poppler_bin_path = self.resource_path('assets/poppler/Library/bin')
-        pages = convert_from_path(pdf_path, dpi=150)
+        poppler_path = self.get_poppler_path()
+        pages = convert_from_path(pdf_path, dpi=150, poppler_path=poppler_path)
         first_page = pages[0]
         max_width = 600
         w_percent = max_width / float(first_page.size[0])
