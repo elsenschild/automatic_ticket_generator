@@ -78,7 +78,7 @@ Then:
 To create a standalone `.exe`:
 
 ```bash
-pyinstaller --clean --onefile main.py --add-data "assets\\delivery_ticket_template.pdf;assets" --add-data "assets\\qb_instructions.png;assets" --collect-all dropbox_sign --collect-all pdf2image --collect-all PyMuPDF
+pyinstaller --clean --onefile main.py --icon "assets\ticket_icon.ico" --add-data "assets\delivery_ticket_template.pdf;assets" --add-data "assets\qb_instructions.png;assets" --add-binary "assets\poppler;poppler_bin" --paths "buildenv311\Lib\site-packages" --collect-all pandas --collect-all numpy --collect-all dropbox_sign --collect-all pdf2image --collect-all PyMuPDF --collect-all dotenv --collect-all PIL --collect-all requests --collect-all openpyxl --hidden-import dropbox_sign.apis --hidden-import dropbox_sign.models --hidden-import pkg_resources --hidden-import setuptools --collect-submodules pkg_resources --collect-submodules setuptools
 ```
 
 ---
